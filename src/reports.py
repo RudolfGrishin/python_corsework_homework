@@ -1,39 +1,39 @@
 import pandas as pd
-from datetime import datetime
-import functools
-from typing import Optional, Callable
+import json
+from datetime import datetime, timedelta
 
 
-def report_to_file(filename: Optional[str] = None) -> Callable:
-    """Декоратор для записи результата функции в файл."""
+def report_decorator(default_filename=None):
+    def decorator(func):
+        def wrapper(transactions_df, category, date=None, filename=None):
 
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> str:
-            nonlocal filename
-            result = func(*args, **kwargs)
+            if date is None:
+                date = datetime.now()
 
             if filename is None:
-                filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                filename = default_filename or f"report_{category}_{date.strftime('%Y%m%d')}.json"
+
+            report_data = func(transactions_df, category, date)
+
+            report_data["total_expenses"] = int(report_data["total_expenses"])
+
             with open(filename, "w", encoding="utf-8") as f:
-                f.write(result)
-            return result
+                json.dump(report_data, f, ensure_ascii=False, indent=4)
+
+            return report_data
 
         return wrapper
 
     return decorator
 
 
-@report_to_file()
-def expenses_by_category(transactions_df: pd.DataFrame, category: str, date: Optional[datetime] = None) -> str:
-    """Вычисляет общие расходы по указанной категории за последние три месяца."""
+@report_decorator()
+def expenses_by_category(transactions_df, category, date=None):
 
     if date is None:
         date = datetime.now()
-    else:
-        date = pd.to_datetime(date)
 
-    three_months_ago = date - pd.DateOffset(months=3)
+    three_months_ago = date - timedelta(days=90)
 
     filtered_df = transactions_df[
         (transactions_df["category"] == category)
@@ -43,26 +43,20 @@ def expenses_by_category(transactions_df: pd.DataFrame, category: str, date: Opt
 
     total_expenses = filtered_df["amount"].sum()
 
-    return (
-        f"Total expenses for category '{category}' from {three_months_ago.date()} to {date.date()}: {total_expenses}"
-    )
+    result = {"category": category, "total_expenses": total_expenses, "date": date.strftime("%Y-%m-%d")}
+
+    return result
 
 
 # Пример использования
 if __name__ == "__main__":
 
     data = {
-        "date": [
-            datetime(2023, 1, 10),
-            datetime(2023, 2, 15),
-            datetime(2023, 3, 20),
-            datetime(2023, 4, 25),
-            datetime(2023, 5, 30),
-        ],
-        "amount": [100, 200, 150, 300, 250],
-        "category": ["Еда", "Еда", "Транспорт", "Еда", "Транспорт"],
+        "date": pd.date_range(start="2023-01-01", periods=100, freq="D"),
+        "amount": [100, 200, 150, 300, 250] * 20,
+        "category": ["food", "transport", "entertainment", "food", "transport"] * 20,
     }
     transactions_df = pd.DataFrame(data)
 
-    # Вызов функции
-    expenses_by_category(transactions_df, "Еда")
+    report = expenses_by_category(transactions_df, "food")
+    print(report)

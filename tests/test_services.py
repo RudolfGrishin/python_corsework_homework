@@ -3,7 +3,6 @@ from unittest.mock import patch
 from src.services import analyze_cashback
 
 
-# Фикстуры для генерации тестовых данных
 @pytest.fixture
 def transaction_data():
     return [
@@ -15,7 +14,6 @@ def transaction_data():
     ]
 
 
-# Параметризованные тесты
 @pytest.mark.parametrize(
     "year, month, expected",
     [
@@ -28,7 +26,6 @@ def test_analyze_cashback(transaction_data, year, month, expected):
     assert result == expected
 
 
-# Тест с использованием mock и patch
 @patch("src.services.json.dumps")
 def test_analyze_cashback_with_mock(mock_dumps, transaction_data):
     mock_dumps.return_value = '{"Еда": 3000, "Транспорт": 2000}'
